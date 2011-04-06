@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+use strict;
+use Getopt::Long;
+Getopt::Long::Configure ("bundling"); # I prefer to have option bundling enabled
+use LCS; # My implementation; see ./LCS.pm
+
+# globals
+
+our %image_hash = ();
+
+# end globals
+
+my $imagefile="data/images.txt";
+my $weightfile="data/weights";
+
+GetOptions(
+	   "i=s" => \$imagefile,
+	   "imagefile=s" => \$imagefile,
+	   "w:s" => \$weightfile,
+	   "weight=s" => \$weightfile, 
+	  );
+
+sub unweighted_rebus($){
+  my ($input_string,) = @_;
+  my $rebus;
+  for my $input_word (split(/\s+/,$input_string)){
+    my ($rebus_word,$lcs_arr_ref,$rebus_word_length);
+    for my $image_word (keys %image_hash){
+      my ($length,$length_arr_ref) = LCS::lcs($input_word,$image_word);
+      if($length > $rebus_word_length){
+	$rebus_word = $image_word;
+	$lcs_arr_ref = $length_arr_ref;
+	$rebus_word_length = $length;
+      }
+    }
+    my $lcs = LCS::getLCSString($input_word,$rebus_word,$lcs_arr_ref);
+    my @lcs_arr = split(//,$lcs);
+    my @input_word_arr = split(//,$input_word);
+    my @rebus_word_arr = split(//,$rebus_word);
+    my ($toadd,$tosubtract);
+    for my $lcs_char (@lcs_arr){
+      while(1){
+	my $input_char = shift @input_word_arr;
+	print "$lcs_char ?= $input_char\n";
+	last if($input_char eq $lcs_char);
+	$toadd .= $input_char;
+      }
+    }
+    $toadd .= join("", @input_word_arr);
+    for my $lcs_char (@lcs_arr){
+      while(1){
+	my $input_char = shift @rebus_word_arr;
+	print "$lcs_char ?= $input_char\n";
+	last if($input_char eq $lcs_char);
+	$tosubtract .= $input_char;
+      }
+    }
+    $tosubtract .= join("", @rebus_word_arr);
+    $rebus .= " " if($rebus);
+    $rebus .= ":$rebus_word";
+    $rebus .= " + $toadd" if($toadd);
+    $rebus .= " - $tosubtract" if($tosubtract);
+  }
+  return $rebus;
+}
+
+open IMAGEFILE, $imagefile;
+while(<IMAGEFILE>){
+  next if /^#/; # just in case someone wants to add comments to the datafile
+  if(/(\S*)\s+(.*)/){
+    my $imagename = $1;
+    my @imagewords = split(/\s+/,$2);
+    for(@imagewords){
+      $image_hash{$_} = $imagename;
+    }
+  }
+}
+
+# my @return_arr = LCS::lcs($ARGV[0],$ARGV[1]);
+# print $return_arr[0]."\n";
+# print LCS::getLCSString($ARGV[0],$ARGV[1],$return_arr[1])."\n";
+# LCS::weightedLCS(@ARGV[0],@ARGV[1],"data/weights")."\n";
+
+print unweighted_rebus(pop @ARGV) and print "\n";

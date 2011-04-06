@@ -1,0 +1,17 @@
+# Weighting all vowels as 5. Rest will be 1 by default.
+
+# The puzzle didn't specify whether Y was a vowel, so I'm not including it.
+# While doing contextual analysis to see whether Y is functioning as a vowel
+# in any given word could be fun, I think it's a bit beyond the scope of
+# this script.
+
+A	5
+a	5
+E	5
+e	5
+I	5
+i	5
+O	5
+o	5
+U	5
+u	5
