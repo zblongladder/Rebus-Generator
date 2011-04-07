@@ -11,26 +11,67 @@ our %image_hash = ();
 # end globals
 
 my $imagefile="data/images.txt";
-my $weightfile="data/weights";
+my $weightfile;
 
 GetOptions(
 	   "i=s" => \$imagefile,
 	   "imagefile=s" => \$imagefile,
 	   "w:s" => \$weightfile,
-	   "weight=s" => \$weightfile, 
+	   "weighted:s" => \$weightfile, 
 	  );
+if(defined $weightfile and not -f $weightfile){
+  $weightfile = "data/weights";
+}
 
+sub weight_word($){
+  my ($word_to_weight,) = @_;
+  my %weights=();
+  my $word_weight;
+  open WEIGHTS, $weightfile;
+  while(<WEIGHTS>){
+    next if(/^#/); # skip comments
+    if(/^(\S)\s+(\d+)/){ # single non-whitespace character, whitespace, numerical weight
+      $weights{$1} = $2;
+    }
+  }
+  close WEIGHTS;
+  for('a'..'z','A'..'Z'){
+    unless($weights{$_}){
+      $weights{$_} = 1; # default weight to 1
+    }
+  }
+  for(split(//,$word_to_weight)){ # for each character in word
+    $word_weight += $weights{$_};
+  }
+  return $word_weight;
+}
 sub unweighted_rebus($){
   my ($input_string,) = @_;
+  return rebus($input_string, 0, 0);
+}
+sub weighted_rebus($){
+  my ($input_string,) = @_;
+  return rebus($input_string, 1, 0);
+}
+sub rebus($$$){
+  my ($input_string, $is_weighted,$is_recursive) = @_;
   my $rebus;
   for my $input_word (split(/\s+/,$input_string)){
+    print "$input_word ".weight_word($input_word)."\n";
     my ($rebus_word,$lcs_arr_ref,$rebus_word_length);
     for my $image_word (keys %image_hash){
-      my ($length,$length_arr_ref) = LCS::lcs($input_word,$image_word);
-      if($length > $rebus_word_length){
+      my ($length,$length_arr_ref);
+      if($weightfile){
+	($length,$length_arr_ref) = LCS::weightedLCS($input_word,$image_word,$weightfile);
+      }
+      else{
+	($length,$length_arr_ref) = LCS::lcs($input_word,$image_word);
+      }
+      my $remaining_length = abs(weight_word($image_word)-$length) + abs(weight_word($input_word) - $length);
+      if($remaining_length < $rebus_word_length or not defined $rebus_word){
 	$rebus_word = $image_word;
 	$lcs_arr_ref = $length_arr_ref;
-	$rebus_word_length = $length;
+	$rebus_word_length = $remaining_length;
       }
     }
     my $lcs = LCS::getLCSString($input_word,$rebus_word,$lcs_arr_ref);
@@ -41,7 +82,6 @@ sub unweighted_rebus($){
     for my $lcs_char (@lcs_arr){
       while(1){
 	my $input_char = shift @input_word_arr;
-	print "$lcs_char ?= $input_char\n";
 	last if($input_char eq $lcs_char);
 	$toadd .= $input_char;
       }
@@ -50,16 +90,16 @@ sub unweighted_rebus($){
     for my $lcs_char (@lcs_arr){
       while(1){
 	my $input_char = shift @rebus_word_arr;
-	print "$lcs_char ?= $input_char\n";
 	last if($input_char eq $lcs_char);
 	$tosubtract .= $input_char;
       }
     }
     $tosubtract .= join("", @rebus_word_arr);
     $rebus .= " " if($rebus);
-    $rebus .= ":$rebus_word";
+    $rebus .= "(:$rebus_word";
     $rebus .= " + $toadd" if($toadd);
     $rebus .= " - $tosubtract" if($tosubtract);
+    $rebus .= ")";
   }
   return $rebus;
 }
@@ -75,6 +115,7 @@ while(<IMAGEFILE>){
     }
   }
 }
+close IMAGEFILE;
 
 # my @return_arr = LCS::lcs($ARGV[0],$ARGV[1]);
 # print $return_arr[0]."\n";
