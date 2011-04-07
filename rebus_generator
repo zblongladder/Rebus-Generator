@@ -7,6 +7,7 @@ use LCS; # My implementation; see ./LCS.pm
 # globals
 
 our %image_hash = ();
+our %weights;
 
 # end globals
 
@@ -19,27 +20,33 @@ GetOptions(
 	   "w:s" => \$weightfile,
 	   "weighted:s" => \$weightfile, 
 	  );
-if(defined $weightfile and not -f $weightfile){
+if(defined $weightfile and not $weightfile){
   $weightfile = "data/weights";
 }
+elsif($weightfile and not -f $weightfile){
+  die("Weight file $weightfile not found.");
+}
+
+
+open WEIGHTS, $weightfile;
+while(<WEIGHTS>){
+  next if(/^#/); # skip comments
+  if(/^(\S)\s+(\d+)/){ # single non-whitespace character, whitespace, numerical weight
+    $weights{$1} = $2;
+  }
+}
+close WEIGHTS;
+for('a'..'z','A'..'Z'){
+  unless($weights{$_}){
+    $weights{$_} = 1; # default weight to 1
+  }
+}
+
 
 sub weight_word($){
   my ($word_to_weight,) = @_;
-  my %weights=();
+  # my %weights=();
   my $word_weight;
-  open WEIGHTS, $weightfile;
-  while(<WEIGHTS>){
-    next if(/^#/); # skip comments
-    if(/^(\S)\s+(\d+)/){ # single non-whitespace character, whitespace, numerical weight
-      $weights{$1} = $2;
-    }
-  }
-  close WEIGHTS;
-  for('a'..'z','A'..'Z'){
-    unless($weights{$_}){
-      $weights{$_} = 1; # default weight to 1
-    }
-  }
   for(split(//,$word_to_weight)){ # for each character in word
     $word_weight += $weights{$_};
   }
